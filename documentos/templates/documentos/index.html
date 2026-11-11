@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-br"><head><meta charset="utf-8"><title>LocalMCP · Documentos</title>
+<style>
+body{font-family:system-ui;max-width:900px;margin:40px auto;padding:0 16px;background:#f6f5f1;color:#1d1d1b}
+input{width:100%;padding:12px;font-size:16px;border:1px solid #ccc;border-radius:8px}
+.r{background:#fff;padding:12px 16px;margin:10px 0;border-radius:8px;border:1px solid #e3e1da}
+.c{font-family:monospace;font-size:12px;color:#666;word-break:break-all}.a{color:#2b6b4f;font-size:13px}
+button{padding:10px 16px;border-radius:8px;border:0;background:#1d1d1b;color:#fff;cursor:pointer;margin-top:8px}
+#resp{white-space:pre-wrap;background:#fff;padding:12px;border-radius:8px;margin-top:12px}
+</style></head><body>
+<h1>LocalMCP</h1>
+<p>Pergunte onde está um documento. Ex.: <em>Onde está o PDF que fala de contrato de aluguel?</em></p>
+<input id="q" placeholder="Sua pergunta…" autofocus>
+<button onclick="perguntar()">Perguntar ao LM Studio</button>
+<button onclick="reindexar()">Reindexar disco</button> <span id="st"></span>
+<div id="resp" hidden></div><div id="lista"></div>
+<script>
+const csrf = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || "";
+const q = document.getElementById("q");
+q.addEventListener("keydown", e => { if (e.key === "Enter") buscar(); });
+function render(rs){document.getElementById("lista").innerHTML = rs.map(r=>`<div class="r"><b>${r.nome}</b>
+<div class="c">${r.caminho}</div>${r.abas_relevantes.length?`<div class="a">Abas: ${r.abas_relevantes.join(", ")}</div>`:""}
+<div>${r.trecho||""}</div></div>`).join("") || "<p>Nada encontrado.</p>";}
+async function buscar(){const r=await fetch("/api/buscar/?q="+encodeURIComponent(q.value));render((await r.json()).resultados||[]);}
+async function perguntar(){const el=document.getElementById("resp");el.hidden=false;el.textContent="Pensando…";
+const r=await fetch("/api/perguntar/",{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":csrf},body:JSON.stringify({pergunta:q.value})});
+const d=await r.json();el.textContent=d.resposta;render(d.resultados);}
+async function reindexar(){const st=document.getElementById("st");
+await fetch("/api/indexar/",{method:"POST",headers:{"X-CSRFToken":csrf}});
+const t=setInterval(async()=>{const d=await (await fetch("/api/indexar/")).json();
+st.textContent=d.rodando?`indexando… (${d.total_no_indice})`:`pronto: ${d.total_no_indice} arquivos`;if(!d.rodando)clearInterval(t);},1500);}
+</script></body></html>
